@@ -66,7 +66,9 @@ def get_players(dt_matches, type, dt_players):
     players_list = list(df_matches['player_name'])
     df_players = dt_players[dt_players.player_name.isin(players_list)]
     df_players.sort_values(['player_name'])
-    df_players = df_players[['player_id', 'player_name', 'hand', 'dob', 'ioc', 'height']]
+    df_players = df_players[['player_id', 'player_name', 'hand', 'dob', 'ioc', 'height']].fillna(0)
+    df_players.replace(to_replace=0, value=(df_players['height'].loc[df_players['height'] != 0]).median(), inplace=True)
+
     df_players.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/" + type + "_players[cleaned].csv")
     return df_players
 
@@ -291,8 +293,8 @@ def get_totalWinsLosses(dt_matches, type, period):
     pd_total.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/" + str(type) + "[WinsLossesTitles" + period + "].csv")
     return pd_total
 
-def get_homeFactor(dtM, type):
-    home = dtM
+def get_home_advantage(dt_matches, type):
+    home = dt_matches
     conditions = [
         (home['tourney_name'] == 'Adelaide'), (home['tourney_name'] == 'Doha'),
         (home['tourney_name'] == 'Chennai'), (home['tourney_name'] == 'Auckland'),
@@ -389,17 +391,19 @@ def get_homeFactor(dtM, type):
     home['home_advantage'] = np.select([(home['winner_ioc'] == home['location_country'])], [1])
     home['home_advantage'] = np.select([(home['loser_ioc'] == home['location_country'])], [2])
 
-    home = home[['tourney_id', 'tourney_name', 'location_country', 'winner_id',
+    home_tosave = home[['tourney_id', 'tourney_name', 'location_country', 'winner_id',
                  'winner_name', 'winner_ioc', 'loser_id', 'loser_name', 'loser_ioc',
                  'score', 'round', 'winner_rank', 'winner_rank_points', 'loser_rank',
                  'loser_rank_points', 'home_advantage']]
 
-    home.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/" + type + "[homeAdv].csv")
-    return
-def get_statsPerTournament(dtM, type, tour):
-    matches = dtM[(dtM['tourney_name'] == tour)]
-    finals = matches[(matches['round']=='F')]
-    semifinals = matches[(matches['round']=='SF')]
+    home_tosave.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/" + type + "[homeAdv].csv")
+    return home
+
+def get_stats_per_tournament(dt_matches, type, tour):
+    matches = dt_matches[(dt_matches['tourney_name'] == tour)]
+
+    finals = matches[(matches['round'] == 'F')]
+    semifinals = matches[(matches['round'] == 'SF')]
     titles_ = finals.groupby('winner_name').size()
     finals_ = semifinals.groupby('winner_name').size()
     winners = matches.groupby('winner_name').size()
@@ -418,58 +422,56 @@ def get_statsPerTournament(dtM, type, tour):
     df = df.sort_values(['player_name'])
     df.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/Tournament/" + type + "[" + str(tour) + "].csv")
     return
-def get_tour(dtM, type):
-    tourlist = ['Adelaide', 'Doha', 'Chennai', 'Auckland', 'Sydney', 'Australian Open',
-                'San Jose', 'Dubai', 'San Jose', 'Dubai', 'Marseille', 'Memphis',
-                'Rotterdam', 'London', 'Mexico City', 'Copenhagen', 'Delray Beach',
-                'Santiago', 'Bogota', 'Scottsdale', 'Indian Wells Masters', 'Miami Masters',
-                'Casablanca', 'Atlanta', 'Estoril', 'Monte Carlo Masters', 'Barcelona',
-                'Munich', 'Mallorca', 'Orlando', 'Rome Masters', 'Hamburg Masters',
-                'Dusseldorf', 'St. Poelten', 'Roland Garros', "Queen's Club", 'Halle',
-                's Hertogenbosch', 'Nottingham', 'Wimbledon', 'Gstaad', 'Newport', 'Bastad',
-                'Amsterdam', 'Stuttgart Outdoor', 'Umag', 'Kitzbuhel', 'Los Angeles',
-                'San Marino', 'Canada Masters', 'Cincinnati Masters', 'Washington',
-                'Indianapolis', 'Long Island', 'US Open', 'Tashkent', 'Bucharest',
-                'Sydney Olympics', 'Palermo', 'Hong Kong', 'Tokyo', 'Vienna', 'Toulouse',
-                'Shanghai', 'Basel', 'Moscow', 'Stuttgart Masters', 'Lyon', 'St. Petersburg',
-                'Paris Masters', 'Stockholm', 'Brighton', 'Masters Cup', 'Milan',
-                'Vina del Mar', 'Buenos Aires', 'Acapulco', 'Houston', 'Stuttgart',
-                'Sopot', 'Costa Do Sauipe', 'Amersfoort', 'Madrid Masters', 'Valencia',
-                'Bangkok', 'Metz', 'Athens Olympics', 'Ho Chi Minh City', 'Zagreb',
-                'Las Vegas', 'Poertschach', 'Mumbai', 'Warsaw', 'Beijing Olympics',
-                'Brisbane', 'Johannesburg', 'Belgrade', 'Eastbourne', 'Hamburg',
-                'Kuala Lumpur', 'Shanghai Masters', 'Nice', 'Montpellier', 'Winston-Salem',
-                'Sao Paulo', 'London Olympics', 'Rio de Janeiro', 'Shenzhen', 'Quito',
-                'Istanbul', 'Geneva', 'Sofia', 'Marrakech', 'Los Cabos', 'Rio Olympics',
-                'Chengdu', 'Antwerp', 'Budapest', 'Antalya', 'NextGen Finals', 'Pune',
-                'New York', 'Cordoba', 'Zhuhai', 'Atp Cup', 'ATP Rio de Janeiro', 'Us Open',
-                'St Petersburg', 'Cologne 1', 'Sardinia', 'Cologne 2', 'Nur-Sultan',
-                'San Diego', 'Great Ocean Road Open', 'Murray River Open', 'Singapore',
-                'Marbella', 'Cagliari', 'Parma', 'Belgrade 2', 'Tokyo Olympics']
+def get_tour(dt_matches, type):
+    tourlist = ['Acapulco', 'Adelaide 1', 'Adelaide 2', 'Antalya', 'Atlanta', 'Antwerp', 'Atp Cup', 'Abu Dhabi',
+                'ATP Rio de Janeiro', 'Auckland', 'Australian Open', 'Bangkok', 'Birmingham', 'Bol', 'Biel', 'Bad Homburg',
+                'Barcelona', 'Basel', 'Bastad', 'Beijing', 'Bogota', 'Belgrade', 'Belgrade 2', 'Brisbane', 'Berlin',
+                'Bucharest', 'Budapest', 'Buenos Aires', 'Calvia', 'Charleston', 'Cincinnati', 'Charleston 1', 'Charleston 2',
+                'Cagliari', 'Canada Masters', 'Casablanca', 'Chengdu', 'Chennai', 'Chicago 1', 'Chicago 2',
+                'Cincinnati Masters', 'Cologne 1', 'Cologne 2', 'Cordoba', 'Costa Do Sauipe', 'Cleveland',
+                'Courmayeur', 'Cluj-Napoca 1', 'Cluj-Napoca 2', 'Dallas', 'Delray Beach', 'Doha', 'Gdynia',
+                'Dubai', 'Dusseldorf', 'Eastbourne', 'Estoril', 'Florianopolis', 'Guadalajara', 'Grampians Trophy',
+                'Geneva', 'Gstaad', 'Guangzhou', 'Great Ocean Road Open', 'Halle', 'Hobart', 'Hong Kong', 'Hua Hin',
+                'Hamburg', 'Hiroshima', 'Houston', 'Indian Wells', 'Indian Wells Masters', 'Istanbul', 'Jurmala',
+                'Johannesburg', 'Japan Open Tokyo', 'Kitzbuhel', 'Kuala Lumpur', 'Kaohsiung', 'Katowice',
+                'Lausanne', 'Limoges', 'Linz', 'Los Angeles', 'Los Cabos', 'London Olympics',
+                'Lyon', 'Luxembourg', 'Lugano', 'Lexington', 'Melbourne 2', 'Melbourne 1',
+                'Madrid', 'Madrid Masters', 'Mallorca', 'Marbella', 'Miami', 'Monterrey', 'Montreal',
+                'Marrakech', 'Marseille', 'Memphis', 'Melbourne', 'Metz', 'Miami Masters', 'Monte Carlo Masters',
+                'Montpellier', 'Moscow', 'Munich', 'Murray River Open', 'New Haven', 'Nanchang',
+                'Newport', 'New York', 'Nur-Sultan', 'NextGen Finals', 'Nice', 'Nottingham', 'Nurnberg',
+                'Paris Masters', 'Pune', 'Parma', 'Palermo', 'Prague', 'Portoroz', 'Phillip Island Trophy',
+                'Olympics', 'Osaka', 'Ostrava', "Queen's Club", 'Quebec City',
+                'Quito', 'Rio de Janeiro', 'Rio Olympics', 'Roland Garros', 'Rome', 'Rome Masters', 'Rabat',
+                'Rotterdam', 's Hertogenbosch', "s Hertogenbosch", 'San Antonio', 'Shenzhen Finals',
+                'San Jose', 'Santiago', 'Singapore', 'Sardinia', 'Sao Paulo', 'Shanghai Masters', 'Seoul',
+                'Shenzhen', 'Sofia', 'St. Petersburg', 'Stockholm', 'Stuttgart', 'Stanford',
+                'Strasbourg', 'Sydney', 'Tashkent', 'Tianjin', 'Tokyo', 'Taipei', 'Toronto', 'Tenerife',
+                'Tokyo Olympics', 'Tour Finals', 'Umag', 'US Open', 'Us Open', 'Valencia', 'Vienna',
+                'Vina del Mar', 'Washington', 'Wimbledon', 'Winston-Salem', 'Wuhan', 'Yarra Valley Classic',
+                'Zagreb', 'Zhuhai', 'Zhengzhou']
     for tour in tourlist:
-        get_statsPerTournament(dtM, type, tour)
+        get_stats_per_tournament(dt_matches, type, tour)
     return
-def get_handedness(dtM, type):
-    dtM.loc[(dtM['winner_hand'] == dtM['loser_hand']), 'handedness'] = 1
-    dtM.loc[((dtM['winner_hand'] == 'R') & (dtM['loser_hand'] == 'L')), 'handedness'] = 2
-    dtM.loc[((dtM['winner_hand'] == 'L') & (dtM['loser_hand'] == 'R')), 'handedness'] = 3
 
-    dtM = dtM[['tourney_id', 'tourney_name', 'tourney_date', 'match_num', 'winner_id', 'winner_name',
-             'loser_id', 'loser_name', 'score', 'minutes', 'winner_rank', 'loser_rank', 'handedness']]
-    dtM.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/" + type + "[hand].csv")
-    return
-def get_ageDiff(dtM, type):
-    dtM['age_dif'] = round(abs(dtM['winner_age'] - dtM['loser_age']))
-    dtM.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/" + type + "[agediff].csv")
-    return
-def get_h2hforplayerA(dtM, playerA):
+def get_handedness(dt_matches):
+    dt_matches.loc[(dt_matches['winner_hand'] == dt_matches['loser_hand']), 'handedness'] = 1
+    dt_matches.loc[((dt_matches['winner_hand'] == 'R') & (dt_matches['loser_hand'] == 'L')), 'handedness'] = 2
+    dt_matches.loc[((dt_matches['winner_hand'] == 'L') & (dt_matches['loser_hand'] == 'R')), 'handedness'] = 3
+    return dt_matches
+
+def get_age_diff(dt_matches):
+    dt_matches['age_dif'] = round(abs(dt_matches['winner_age'] - dt_matches['loser_age']))
+    return dt_matches
+
+def get_h2hforplayerA(dt_matches, playerA):
     """
     if name = 'Roger Federer' then the result ['Sergi Bruguera', 0, 1] means that
     Roger Federer had 0 wins over Bruguera and Sergi Bruguera had 1 win over Federer.
     """
-    dtM = dtM[(dtM['winner_name'] == playerA) | (dtM['loser_name'] == playerA)]
+    dt_matches = dt_matches[(dt_matches['winner_name'] == playerA) | (dt_matches['loser_name'] == playerA)]
     h2hs = {}
-    for index, match in dtM.iterrows():
+    for index, match in dt_matches.iterrows():
         if match['winner_name'] == playerA:
             if match['loser_name'] not in h2hs:
                 h2hs[match['loser_name']] = {}
@@ -498,19 +500,18 @@ def get_h2hforplayerB(tuple, playerA, playerB):
         if playerB in item:
             print('Player ' + playerA + ' has ' + str(item[1]) + ' wins over ' + playerB + ' and ' + str(item[2]) + ' losses.')
             return item[1], item[2]
-def get_h2h(playerA, playerB, dtM):
-    h2hList = get_h2hforplayerA(dtM, playerA)
+def get_h2h(playerA, playerB, dt_matches):
+    h2hList = get_h2hforplayerA(dt_matches, playerA)
     wins, losses = get_h2hforplayerB(h2hList, playerA, playerB)
     return wins, losses
 
-def get_difRank(dtM, type):
-    dtM['rankingDifference'] = round(abs(dtM['winner_rank'] - dtM['loser_rank']))
-    dtM.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/" + type + "[rankDiff].csv")
-    return
-def get_difRankPoints(dtM, type):
-    dtM['rank_points_diff'] = round(abs(dtM['winner_rank_points'] - dtM['loser_rank_points']))
-    dtM.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/" + type + "[rankPointsDiff].csv")
-    return
+def get_difference_in_ranking(dt_matches):
+    dt_matches['rankingDifference'] = round(abs(dt_matches['winner_rank'] - dt_matches['loser_rank']))
+    return dt_matches
+def get_difference_in_ranking_points(dt_matches):
+    dt_matches['rank_points_diff'] = round(abs(dt_matches['winner_rank_points'] - dt_matches['loser_rank_points']))
+    return dt_matches
+
 def k_factor(matches_played):
     K = 250
     offset = 5
@@ -596,9 +597,8 @@ def get_Elo(dtP, type, now, score):
                     player.loc[index_winner[0], 'peak_elo_date'] = row['tourney_date']
 
             player.to_csv('/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/' + str(type) + '_' + str(current_year) + '_yr_end_elo_ranking.csv')
-
             current_year = current_year + 1
-    return
+    return player
 
 def get_winning_streak_till_today(dtM, player):
     dtM = dtM[(dtM['winner_name'] == player) | (dtM['loser_name'] == player)]
@@ -671,10 +671,12 @@ w_surfaces = get_surfaces_together(wtaMatches, 'wta')
 w_players = pd.merge(left=wtaPlayers, right=w_surfaces, right_on='player_name', left_on='player_name').fillna(0)
 w_players.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/wta_players[update].csv")
 
+
 a_matches = get_metrics(atpMatches, 'atp').fillna(0)
 a_matches.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/atp_matches[update].csv")
 w_matches = get_metrics(wtaMatches, 'wta').fillna(0)
 w_matches.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/wta_matches[update].csv")
+
 
 a_career = get_totalWinsLosses(atpMatches, 'atp', 'Career')
 a_players = pd.merge(left=a_players, right=a_career, right_on='player_name', left_on='player_name').fillna(0)
@@ -708,34 +710,123 @@ w_last_two_weeks = get_totalWinsLosses(w_last_two_weeks, 'wta', 'LastTwoWeeks')
 w_players = pd.merge(left=w_players, right=w_last_two_weeks,how='left', right_on='player_name', left_on='player_name').fillna(0)
 w_players.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/wta_players[update].csv")
 
-"""
-get_homeFactor(atpMatches, 'atp')
-get_homeFactor(wtaMatches, 'wta')
+a_matches = get_home_advantage(a_matches, 'atp')
+a_matches.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/atp_matches[update].csv")
+w_matches = get_home_advantage(w_matches, 'wta')
+w_matches.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/wta_matches[update].csv")
 
 get_tour(atpMatches, 'atp')
 get_tour(wtaMatches, 'wta')
 
-get_handedness(atpMatches, 'atp')
-get_handedness(wtaMatches, 'wta')
+a_matches = get_handedness(a_matches)
+a_matches.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/atp_matches[update].csv")
+w_matches = get_handedness(w_matches)
+w_matches.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/wta_matches[update].csv")
 
-get_ageDiff(atpMatches, 'atp')
-get_ageDiff(wtaMatches, 'wta')
+a_matches = get_age_diff(a_matches)
+a_matches.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/atp_matches[update].csv")
+w_matches = get_age_diff(w_matches)
+w_matches.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/wta_matches[update].csv")
 
-get_h2h('Roger Federer', 'Stefanos Tsitsipas', atpMatches)
+get_h2h('Roger Federer', 'Stefanos Tsitsipas', a_matches)
 
-get_Elo(atpPlayers, 'atp', 2022, 1)
-get_Elo(wtaPlayers, 'wta', 2022, 1)
-"""
+a_matches = get_difference_in_ranking(a_matches)
+a_matches = get_difference_in_ranking_points(a_matches)
+a_matches.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/atp_matches[update].csv")
+w_matches = get_difference_in_ranking(w_matches)
+w_matches = get_difference_in_ranking_points(w_matches)
+w_matches.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/wta_matches[update].csv")
 
-#get_difRank(atpMatches, 'atp')
-#get_difRankPoints(atpMatches, 'atp')
+a_elo = get_Elo(a_players, 'atp', 2022, 1)
+a_players = pd.merge(left=a_players, right=a_elo, how='left', right_on='player_name', left_on='player_name').fillna(0)
+a_players.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/atp_players[update].csv")
 
-#atp = get_date(atpMatches)
-#atp = get_last_year(atp, 2022, 3)
-#atp.to_csv('atp.csv')
+w_elo = get_Elo(w_players, 'wta', 2022, 1)
+w_players = pd.merge(left=w_players, right=w_elo, how='left', right_on='player_name', left_on='player_name').fillna(0)
+w_players.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/wta_players[update].csv")
 
-#atp = get_last_two_weeks(atpMatches, '03/10/15 00:00:00')
+winning = get_winning_streak_till_today(a_matches, 'Stefanos Tsitsipas')
+losing = get_losing_streak_till_today(a_matches, 'Stefanos Tsitsipas')
+inactive = get_weeks_inactive_till_today(a_matches, 'Stefanos Tsitsipas', '23/05/22 00:00:00')
 
-#k = get_losing_streak_till_today(atpMatches, 'Stefanos Tsitsipas')
-#print(k)
 
+############## AT LAST
+#### we are going to have 3 general files
+#### matches, stats, players
+
+a_stats = a_matches[['tourney_id', 'location_country', 'surface', 'tourney_level', 'tourney_date',
+                     'year', 'month', 'date', 'match_num', 'best_of',
+                     'winner_id', 'winner_name', 'winner_age',
+                     'home_advantage', 'handedness',
+                     'loser_id', 'loser_name', 'loser_age', 'age_dif',
+                     'score', 'round', 'minutes',
+                     'w_ace', 'w_df', 'w_svpt', 'w_1stIn', 'w_1stWon', 'w_1stS(%)', 'w_2ndIn',
+                     'w_2ndWon', 'w_1st_svpt(%)', 'w_2nd_svpt(%)', 'w_SvGms',
+                     'w_1stS_rtpWon', 'w_2ndS_rtpWon', 'w_1stS_rtpWon(%)', 'w_2ndS_rtpWon(%)',
+                     'w_bpSaved', 'w_bpFaced', 'w_bpWon(%)', 'w_bpWon', 'w_bpConv(%)',
+                     'winner_rank', 'winner_rank_points',
+                     'l_ace', 'l_df', 'l_svpt', 'l_1stIn', 'l_1stWon', 'l_1stS(%)', 'l_2ndIn',
+                     'l_2ndWon', 'l_1st_svpt(%)', 'l_2nd_svpt(%)', 'l_SvGms',
+                     'l_1stS_rtpWon', 'l_2ndS_rtpWon', 'l_1stS_rtpWon(%)', 'l_2ndS_rtpWon(%)',
+                     'l_bpSaved', 'l_bpFaced', 'l_bpWon(%)', 'l_bpWon', 'l_bpConv(%)',
+                     'loser_rank', 'loser_rank_points', 'rankingDifference', 'rank_points_diff']]
+a_stats.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/atp_stats[final].csv")
+
+w_stats = w_matches[['tourney_id', 'location_country', 'surface', 'tourney_level', 'tourney_date',
+                     'year', 'month', 'date', 'match_num', 'best_of',
+                     'winner_id', 'winner_name', 'winner_age',
+                     'home_advantage', 'handedness',
+                     'loser_id', 'loser_name', 'loser_age', 'age_dif',
+                     'score', 'round', 'minutes',
+                     'w_ace', 'w_df', 'w_svpt', 'w_1stIn', 'w_1stWon', 'w_1stS(%)', 'w_2ndIn',
+                     'w_2ndWon', 'w_1st_svpt(%)', 'w_2nd_svpt(%)', 'w_SvGms',
+                     'w_1stS_rtpWon', 'w_2ndS_rtpWon', 'w_1stS_rtpWon(%)', 'w_2ndS_rtpWon(%)',
+                     'w_bpSaved', 'w_bpFaced', 'w_bpWon(%)', 'w_bpWon', 'w_bpConv(%)',
+                     'winner_rank', 'winner_rank_points',
+                     'l_ace', 'l_df', 'l_svpt', 'l_1stIn', 'l_1stWon', 'l_1stS(%)', 'l_2ndIn',
+                     'l_2ndWon', 'l_1st_svpt(%)', 'l_2nd_svpt(%)', 'l_SvGms',
+                     'l_1stS_rtpWon', 'l_2ndS_rtpWon', 'l_1stS_rtpWon(%)', 'l_2ndS_rtpWon(%)',
+                     'l_bpSaved', 'l_bpFaced', 'l_bpWon(%)', 'l_bpWon', 'l_bpConv(%)',
+                     'loser_rank', 'loser_rank_points', 'rankingDifference', 'rank_points_diff']]
+w_stats.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/wta_stats[final].csv")
+
+a_matches = a_matches[['tourney_id', 'tourney_name', 'location_country', 'surface', 'tourney_level',
+                       'tourney_date',
+                       'year', 'month', 'date', 'match_num', 'winner_id', 'winner_name', 'winner_rank',
+                       'winner_rank_points', 'loser_id', 'loser_name', 'loser_rank', 'loser_rank_points',
+                       'score', 'round', 'minutes']]
+a_matches.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/atp_matches[final].csv")
+
+w_matches = w_matches[['tourney_id', 'tourney_name', 'location_country', 'surface', 'tourney_level',
+                       'tourney_date',
+                       'year', 'month', 'date', 'match_num', 'winner_id', 'winner_name', 'winner_rank',
+                       'winner_rank_points', 'loser_id', 'loser_name', 'loser_rank', 'loser_rank_points',
+                       'score', 'round', 'minutes']]
+w_matches.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/wta_matches[final].csv")
+
+a_players = a_players[['player_id_x', 'player_name', 'hand', 'dob', 'ioc_x', 'height', 'total_matches',
+                       'wins_Hard', 'losses_Hard', 'Hard(%)', 'wins_Grass', 'losses_Grass', 'Grass(%)',
+                       'wins_Clay', 'losses_Clay', 'Clay(%)', 'wins_Carpet', 'losses_Carpet', 'Carpet(%)',
+                       'Wins_Career', 'Losses_Career', 'Matches_Career', 'Wins(%)_Career', 'Finals_Career',
+                       'Titles_Career', 'Wins_LastYear', 'Losses_LastYear', 'Matches_LastYear',
+                       'Wins(%)_LastYear', 'Finals_LastYear', 'Titles_LastYear', 'Wins_LastSemester',
+                       'Losses_LastSemester', 'Matches_LastSemester', 'Wins(%)_LastSemester',
+                       'Finals_LastSemester', 'Titles_LastSemester', 'Wins_LastTwoWeeks', 'Losses_LastTwoWeeks',
+                       'Matches_LastTwoWeeks', 'Wins(%)_LastTwoWeeks', 'Finals_LastTwoWeeks', 'Titles_LastTwoWeeks',
+                       'current_elo', 'last_tourney_date', 'matches_played', 'peak_elo', 'peak_elo_date']]
+a_players.rename(columns={'player_id_x': 'player_id', 'ioc_x': 'ioc'}, inplace=True)
+a_players.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/atp_players[final].csv")
+
+
+w_players = w_players[['player_id_x', 'player_name', 'hand', 'dob', 'ioc_x', 'height', 'total_matches',
+                       'wins_Hard', 'losses_Hard', 'Hard(%)', 'wins_Grass', 'losses_Grass', 'Grass(%)',
+                       'wins_Clay', 'losses_Clay', 'Clay(%)', 'wins_Carpet', 'losses_Carpet', 'Carpet(%)',
+                       'Wins_Career', 'Losses_Career', 'Matches_Career', 'Wins(%)_Career', 'Finals_Career',
+                       'Titles_Career', 'Wins_LastYear', 'Losses_LastYear', 'Matches_LastYear',
+                       'Wins(%)_LastYear', 'Finals_LastYear', 'Titles_LastYear', 'Wins_LastSemester',
+                       'Losses_LastSemester', 'Matches_LastSemester', 'Wins(%)_LastSemester',
+                       'Finals_LastSemester', 'Titles_LastSemester', 'Wins_LastTwoWeeks', 'Losses_LastTwoWeeks',
+                       'Matches_LastTwoWeeks', 'Wins(%)_LastTwoWeeks', 'Finals_LastTwoWeeks', 'Titles_LastTwoWeeks',
+                       'current_elo', 'last_tourney_date', 'matches_played', 'peak_elo', 'peak_elo_date']]
+w_players.rename(columns={'player_id_x': 'player_id', 'ioc_x': 'ioc'}, inplace=True)
+w_players.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/wta_players[final].csv")
