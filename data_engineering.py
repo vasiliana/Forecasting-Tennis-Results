@@ -125,7 +125,7 @@ def days_inactive(last_date, now_date):
 
 ######## UTIL FUNCTIONS ########
 
-# 1. Home Advantage Effect
+# 1. Home Advantage Effect -> OK
 def get_home_advantage(row):
     """
     Home Advantage Effect plays a significant and quantitatively important role.
@@ -141,7 +141,7 @@ def get_home_advantage(row):
     else:
         return 0
 
-# 2. Rankings calculated by logarithms with base 2
+# 2. Rankings calculated by logarithms with base 2 -> OK
 def compute_log_rankings(row):
     """
     The model with difference of the logarithm of World Ranks provides a much better
@@ -164,7 +164,7 @@ def compute_log_rankings(row):
     row['B_rank_points_log'] = math.log2(row['B_rank_points'])
     return row
 
-# 3. Quality of the Match
+# 3. Quality of the Match -> OK
 def get_match_quality(df):
     """
     Quality of the Match is measured by the sum of the Rankings of both players
@@ -174,14 +174,14 @@ def get_match_quality(df):
     df['match_quality2'] = df['A_rank_log'] + df['B_rank_log']
     return df
 
-# 4. Surface Information 1
+# 4. Surface Information 1 -> OK
 def combine_surface_court(row):
     surface_value = str(row['surface'])
     court_value = str(row['court'])
     row['surface_court'] = str(surface_value + '_' + court_value)
     return row
 
-# 5. Betting Statistics
+# 5. Betting Statistics -> OK
 def betting_features(df):
     """
     See Paper: 2021_[Sports prediction and betting models in the machine learning age/ The case of tennis]
@@ -195,7 +195,7 @@ def betting_features(df):
 
     return df
 
-# 6. Career Statistics
+# 6. Career Statistics -> OK
 def career_features(df):
     """
     Calculate career statistics (since the year of the first used dataset)
@@ -210,45 +210,49 @@ def career_features(df):
             print('Working on it (', num, ')..')
 
         temp_df = df[df['match_index'] <= num]
+
         winner = df['A_id'][num]
-        winner_size = temp_df.groupby('A_id').size()
-
         loser = df['B_id'][num]
-        loser_size = temp_df.groupby('B_id').size()
+        round_curr = df['round'][num]
 
-        finals = temp_df[(temp_df['round'] == 'The Final')]
-        titles_size = finals.groupby('A_id').size()
+        wins_Adf = temp_df[(temp_df['A_id'] == winner)]
+        losses_Adf = temp_df[(temp_df['B_id'] == winner)]
+        titles_Adf = temp_df[(temp_df['A_id'] == winner) & (temp_df['round'] == 'The Final')]
 
-        career = pd.DataFrame({'wins_career': winner_size, 'losses_career': loser_size}).fillna(0)
-        career[['wins_career', 'losses_career']] = career[['wins_career', 'losses_career']].astype(int)
-        career = career.reindex(['wins_career', 'losses_career'], axis=1)
-        career['matches_career'] = career['wins_career'] + career['losses_career']
-        career = career.join(pd.DataFrame(titles_size, columns=['titles_career'], )).fillna(0)
-        career['titles_career'] = career['titles_career'].astype(int)
-        career.index.name = 'player_id'
-        career.reset_index(level=0, inplace=True)
+        if wins_Adf.shape[0] == 0:
+            wins_plA = 0
+        else:
+            wins_plA = wins_Adf.shape[0] - 1
 
-        winner_career_df = career.loc[career['player_id'] == winner]
-        if winner_career_df.shape[0] != 0:
-            winner_career_df.reset_index(level=0, inplace=True)
-            df.at[num, 'A_wins_career'] = winner_career_df['wins_career'][0] - 1
-            df.at[num, 'A_losses_career'] = winner_career_df['losses_career'][0]
-            df.at[num, 'A_matches_career'] = winner_career_df['matches_career'][0] - 1
-            df.at[num, 'A_titles_career'] = winner_career_df['titles_career'][0] - 1
+        if titles_Adf.shape[0] == 0:
+            titles_plA = 0
+        elif (titles_Adf.shape[0] != 0) and (round_curr == 'The Final'):
+            titles_plA = titles_Adf.shape[0] - 1
+        else:
+            titles_plA = titles_Adf.shape[0]
 
-        loser_career_df = career.loc[career['player_id'] == loser]
-        if loser_career_df.shape[0] != 0:
-            loser_career_df.reset_index(level=0, inplace=True)
-            df.at[num, 'B_wins_career'] = loser_career_df['wins_career'][0]
-            df.at[num, 'B_losses_career'] = loser_career_df['losses_career'][0] - 1
-            df.at[num, 'B_matches_career'] = loser_career_df['matches_career'][0] - 1
-            df.at[num, 'B_titles_career'] = loser_career_df['titles_career'][0]
+        wins_Bdf = temp_df[(temp_df['A_id'] == loser)]
+        losses_Bdf = temp_df[(temp_df['B_id'] == loser)]
+        titles_Bdf = temp_df[(temp_df['A_id'] == loser) & (temp_df['round'] == 'The Final')]
 
-    df[['A_wins_career', 'A_losses_career', 'A_matches_career', 'A_titles_career',
-        'B_wins_career', 'B_losses_career', 'B_matches_career', 'B_titles_career']].fillna(0, inplace=True)
+        if losses_Bdf.shape[0] == 0:
+            losses_plB = 0
+        else:
+            losses_plB = losses_Bdf.shape[0] - 1
+
+        df.at[num, 'A_wins_career'] = wins_plA
+        df.at[num, 'A_losses_career'] = losses_Adf.shape[0]
+        df.at[num, 'A_matches_career'] = wins_plA + losses_Adf.shape[0]
+        df.at[num, 'A_titles_career'] = titles_plA
+
+        df.at[num, 'B_wins_career'] = wins_Bdf.shape[0]
+        df.at[num, 'B_losses_career'] = losses_plB
+        df.at[num, 'B_matches_career'] = wins_Bdf.shape[0] + losses_plB
+        df.at[num, 'B_titles_career'] = titles_Bdf.shape[0]
+
     return df
 
-# 7. Yearly Statistics
+# 7. Yearly Statistics -> OK
 def yearly_features(df):
     """
     Calculate yearly statistics ( for a 12-month period )
@@ -321,6 +325,7 @@ def yearly_features(df):
 
             starting_index = to_start.index[0]
 
+            # the last row (=num) is not included
             lastyear = df.iloc[starting_index:num]
 
             plA = lastyear.loc[(lastyear['A_id'] == winner) | (lastyear['B_id'] == winner)]
@@ -362,7 +367,7 @@ def yearly_features(df):
 
     return df
 
-# 8. Semesterly Statistics
+# 8. Semesterly Statistics -> OK
 def semester_features(df):
     """
     Calculate yearly statistics ( for a 12-month period )
@@ -423,6 +428,7 @@ def semester_features(df):
 
             starting_index = to_start.index[0]
 
+            # last row (=num) is not included
             lastsemester = df.iloc[starting_index:num]
 
             plA = lastsemester.loc[(lastsemester['A_id'] == winner) | (lastsemester['B_id'] == winner)]
@@ -461,7 +467,7 @@ def semester_features(df):
 
     return df
 
-# 9. Recent Matches Statistics
+# 9. Recent Matches Statistics -> OK
 def recent_features(df):
     """
     Calculate Recent Statistics from last two weeks
@@ -527,6 +533,7 @@ def recent_features(df):
 
             starting_index = to_start.index[0]
 
+            # last row (=num) is not included
             recent = df.iloc[starting_index:num]
 
             plA = recent.loc[(recent['A_id'] == winner) | (recent['B_id'] == winner)]
@@ -565,7 +572,7 @@ def recent_features(df):
                 df.at[num, 'B_titles_recent'] = df['B_titles_career'][last_index_B] - df['B_titles_career'][first_index_B]
     return df
 
-# 10. Surface Information 2
+# 10. Surface Information 2 -> ΟΚ
 def get_surface_features(df):
     """
     Some players are better at particular courts
@@ -591,58 +598,54 @@ def get_surface_features(df):
                        11000, 12000, 13000, 14000, 15000, 16000, 17000, 18000, 19000, 20000,
                        21000, 22000, 23000, 24000, 25000, 26000, 27000, 28000]:
                 print('Working on it (', num, ')..')
+
             temp_df = df_surface[df_surface['surface_index'] <= num]
+            match_index = df_surface['match_index'][num]
 
-            winner = df['A_id'][num]
-            winner_size = temp_df.groupby('A_id').size()
+            winner = temp_df['A_id'][num]
+            loser = temp_df['B_id'][num]
+            round_curr = temp_df['round'][num]
 
-            loser = df['B_id'][num]
-            loser_size = temp_df.groupby('B_id').size()
+            wins_Adf = temp_df[(temp_df['A_id'] == winner)]
+            losses_Adf = temp_df[(temp_df['B_id'] == winner)]
+            titles_Adf = temp_df[(temp_df['A_id'] == winner) & (temp_df['round'] == 'The Final')]
 
-            finals = temp_df[(temp_df['round'] == 'The Final')]
-            titles_size = finals.groupby('A_id').size()
-
-            surface_df = pd.DataFrame({'wins_' + str(surface): winner_size, 'losses_' + str(surface): loser_size}).fillna(0)
-            surface_df[['wins_' + str(surface), 'losses_' + str(surface)]] = surface_df[['wins_' + str(surface), 'losses_' + str(surface)]].astype(int)
-            surface_df = surface_df.reindex(['wins_' + str(surface), 'losses_' + str(surface)], axis=1)
-            surface_df['matches_' + str(surface)] = surface_df['wins_' + str(surface)] + surface_df['losses_' + str(surface)]
-            surface_df = surface_df.join(pd.DataFrame(titles_size, columns=['titles_' + str(surface)], )).fillna(0)
-            surface_df['titles_' + str(surface)] = surface_df['titles_' + str(surface)].astype(int)
-            surface_df.index.name = 'player_id'
-            surface_df.reset_index(level=0, inplace=True)
-
-            winner_df = surface_df.loc[surface_df['player_id'] == winner]
-
-            if winner_df.shape[0] != 0:
-                winner_df.reset_index(level=0, inplace=True)
-                df.at[num, 'A_wins_' + str(surface)] = winner_df['wins_' + str(surface)][0] - 1
-                df.at[num, 'A_losses_' + str(surface)] = winner_df['losses_' + str(surface)][0]
-                df.at[num, 'A_matches_' + str(surface)] = winner_df['matches_' + str(surface)][0] - 1
-                df.at[num, 'A_titles_' + str(surface)] = winner_df['titles_' + str(surface)][0] - 1
+            if wins_Adf.shape[0] == 0:
+                wins_plA = 0
             else:
-                df.at[num, 'A_wins_' + str(surface)] = 0
-                df.at[num, 'A_losses_' + str(surface)] = 0
-                df.at[num, 'A_matches_' + str(surface)] = 0
-                df.at[num, 'A_titles_' + str(surface)] = 0
+                wins_plA = wins_Adf.shape[0] - 1
 
-            loser_df = surface_df.loc[surface_df['player_id'] == loser]
-
-            if loser_df.shape[0] != 0:
-                loser_df.reset_index(level=0, inplace=True)
-                df.at[num, 'B_wins_' + str(surface)] = loser_df['wins_' + str(surface)][0]
-                df.at[num, 'B_losses_' + str(surface)] = loser_df['losses_' + str(surface)][0] - 1
-                df.at[num, 'B_matches_' + str(surface)] = loser_df['matches_' + str(surface)][0] - 1
-                df.at[num, 'B_titles_' + str(surface)] = loser_df['titles_' + str(surface)][0]
+            if titles_Adf.shape[0] == 0:
+                titles_plA = 0
+            elif (titles_Adf.shape[0] != 0) and (round_curr == 'The Final'):
+                titles_plA = titles_Adf.shape[0] - 1
             else:
-                df.at[num, 'B_wins_' + str(surface)] = 0
-                df.at[num, 'B_losses_' + str(surface)] = 0
-                df.at[num, 'B_matches_' + str(surface)] = 0
-                df.at[num, 'B_titles_' + str(surface)] = 0
+                titles_plA = titles_Adf.shape[0]
+
+            wins_Bdf = temp_df[(temp_df['A_id'] == loser)]
+            losses_Bdf = temp_df[(temp_df['B_id'] == loser)]
+            titles_Bdf = temp_df[(temp_df['A_id'] == loser) & (temp_df['round'] == 'The Final')]
+
+            if losses_Bdf.shape[0] == 0:
+                losses_plB = 0
+            else:
+                losses_plB = losses_Bdf.shape[0] - 1
+
+            df.at[match_index, 'A_wins_' + str(surface)] = wins_plA
+            df.at[match_index, 'A_losses_' + str(surface)] = losses_Adf.shape[0]
+            df.at[match_index, 'A_matches_' + str(surface)] = wins_plA + losses_Adf.shape[0]
+            df.at[match_index, 'A_titles_' + str(surface)] = titles_plA
+
+            df.at[match_index, 'B_wins_' + str(surface)] = wins_Bdf.shape[0]
+            df.at[match_index, 'B_losses_' + str(surface)] = losses_plB
+            df.at[match_index, 'B_matches_' + str(surface)] = wins_Bdf.shape[0] + losses_plB
+            df.at[match_index, 'B_titles_' + str(surface)] = titles_Bdf.shape[0]
 
     return df
 
-# 11. Surface Information 3
+# 11. Surface Information 3 -> ΟΚ
 def calculate_per_surface(df):
+    df.fillna(0, inplace=True)
     df['A_matches_per_surface'] = df['A_matches_Hard_Outdoor'] + df['A_matches_Hard_Indoor'] + df['A_matches_Grass_Outdoor'] + df['A_matches_Clay_Outdoor'] + df['A_matches_Clay_Indoor']
     df['A_wins_per_surface'] = df['A_wins_Hard_Outdoor'] + df['A_wins_Hard_Indoor'] + df['A_wins_Grass_Outdoor'] + df['A_wins_Clay_Outdoor'] + df['A_wins_Clay_Indoor']
     df['A_losses_per_surface'] = df['A_losses_Hard_Outdoor'] + df['A_losses_Hard_Indoor'] + df['A_losses_Grass_Outdoor'] + df['A_losses_Clay_Outdoor'] + df['A_losses_Clay_Indoor']
@@ -669,7 +672,7 @@ def calculate_per_surface(df):
             inplace=True)
     return df
 
-# 12. Tournament Statistics
+# 12. Tournament Statistics -> ΟΚ
 def tournament_features(df):
     """
     Calculate tournament statistics ( for lifetime period )
@@ -691,58 +694,43 @@ def tournament_features(df):
 
         winner = df['A_id'][num]
         loser = df['B_id'][num]
+        tour = df['tourney_id'][num]
+        round_curr = df['round'][num]
 
-        A_tour_wins = temp_df.loc[(temp_df['A_id'] == winner) & (temp_df['tourney_id'] == temp_df['tourney_id'][num])]
-        A_tour_losses = temp_df.loc[(temp_df['B_id'] == winner) & (temp_df['tourney_id'] == temp_df['tourney_id'][num])]
-        A_tour_titles = A_tour_wins.loc[A_tour_wins['round'] == 'The Final']
+        A_tour_wins = temp_df.loc[(temp_df['A_id'] == winner) & (temp_df['tourney_id'] == tour)]
+        A_tour_losses = temp_df.loc[(temp_df['B_id'] == winner) & (temp_df['tourney_id'] == tour)]
+        A_tour_titles = temp_df[(temp_df['A_id'] == winner) & (temp_df['round'] == 'The Final')]
 
         if A_tour_wins.shape[0] == 0:
-            A_wins = 0
+            wins_plA = 0
         else:
-            A_wins = A_tour_wins.shape[0] - 1
-
-        if A_tour_losses.shape[0] == 0:
-            A_losses = 0
-        else:
-            A_losses = A_tour_losses.shape[0]
+            wins_plA = A_tour_wins.shape[0] - 1
 
         if A_tour_titles.shape[0] == 0:
-            A_titles = 0
+            titles_plA = 0
+        elif (A_tour_titles.shape[0] != 0) and (round_curr == 'The Final'):
+            titles_plA = A_tour_titles.shape[0] - 1
         else:
-            last_row_index = A_tour_titles.index[-1]
-            if last_row_index == num:
-                A_titles = A_tour_titles.shape[0] - 1
-            else:
-                A_titles = A_tour_titles.shape[0]
+            titles_plA = A_tour_titles.shape[0]
 
-        df.at[num, 'A_wins_tour'] = A_wins
-        df.at[num, 'A_losses_tour'] = A_losses
-        df.at[num, 'A_matches_tour'] = A_wins + A_losses
-        df.at[num, 'A_titles_tour'] = A_titles
+        df.at[num, 'A_wins_tour'] = wins_plA
+        df.at[num, 'A_losses_tour'] = A_tour_losses.shape[0]
+        df.at[num, 'A_matches_tour'] = wins_plA + A_tour_losses.shape[0]
+        df.at[num, 'A_titles_tour'] = titles_plA
 
-        B_tour_wins = temp_df.loc[(temp_df['A_id'] == loser) & (temp_df['tourney_id'] == temp_df['tourney_id'][num])]
-        B_tour_losses = temp_df.loc[(temp_df['B_id'] == loser) & (temp_df['tourney_id'] == temp_df['tourney_id'][num])]
-        B_tour_titles = B_tour_wins.loc[B_tour_wins['round'] == 'The Final']
-
-        if B_tour_wins.shape[0] == 0:
-            B_wins = 0
-        else:
-            B_wins = B_tour_wins.shape[0]
+        B_tour_wins = temp_df[(temp_df['A_id'] == loser) & (temp_df['tourney_id'] == tour)]
+        B_tour_losses = temp_df[(temp_df['B_id'] == loser) & (temp_df['tourney_id'] == tour)]
+        B_tour_titles = temp_df[(temp_df['A_id'] == loser) & (temp_df['round'] == 'The Final')]
 
         if B_tour_losses.shape[0] == 0:
-            B_losses = 0
+            losses_plB = 0
         else:
-            B_losses = B_tour_losses.shape[0] - 1
+            losses_plB = B_tour_losses.shape[0] - 1
 
-        if B_tour_titles.shape[0] == 0:
-            B_titles = 0
-        else:
-            B_titles = B_tour_titles.shape[0]
-
-        df.at[num, 'B_wins_tour'] = B_wins
-        df.at[num, 'B_losses_tour'] = B_losses
-        df.at[num, 'B_matches_tour'] = B_wins + B_losses
-        df.at[num, 'B_titles_tour'] = B_titles
+        df.at[num, 'B_wins_tour'] = B_tour_wins.shape[0]
+        df.at[num, 'B_losses_tour'] = losses_plB
+        df.at[num, 'B_matches_tour'] = B_tour_wins.shape[0] + losses_plB
+        df.at[num, 'B_titles_tour'] = B_tour_titles.shape[0]
 
     # Calculate the percentage of games won in the same tournament
     df['A_tour_per'] = (df['A_wins_tour'] / df['A_matches_tour']) * 100.0
@@ -750,7 +738,7 @@ def tournament_features(df):
 
     return df
 
-# 13. Round Statistics
+# 13. Round Statistics -> ΟΚ
 def round_features(df):
     """
     Calculate round statistics ( for lifetime period )
@@ -766,57 +754,47 @@ def round_features(df):
             print('Working on it (', num, ')..')
 
         temp_df = df[df['match_index'] <= num]
-
         winner = df['A_id'][num]
         loser = df['B_id'][num]
+        round_curr = df['round'][num]
 
-        A_round_wins = temp_df.loc[(temp_df['A_id'] == winner) & (temp_df['round'] == temp_df['round'][num])]
-        A_round_losses = temp_df.loc[(temp_df['B_id'] == winner) & (temp_df['round'] == temp_df['round'][num])]
+        A_round_wins = temp_df.loc[(temp_df['A_id'] == winner) & (temp_df['round'] == round_curr)]
+        A_round_losses = temp_df.loc[(temp_df['B_id'] == winner) & (temp_df['round'] == round_curr)]
 
         if A_round_wins.shape[0] == 0:
             A_wins = 0
         else:
             A_wins = A_round_wins.shape[0] - 1
 
-        if A_round_losses.shape[0] == 0:
-            A_losses = 0
-        else:
-            A_losses = A_round_losses.shape[0]
-
         df.at[num, 'A_round_wins'] = A_wins
-        df.at[num, 'A_round_losses'] = A_losses
-        df.at[num, 'A_round_matches'] = A_wins + A_losses
+        df.at[num, 'A_round_losses'] = A_round_losses.shape[0]
+        df.at[num, 'A_round_matches'] = A_wins + A_round_losses.shape[0]
 
-        if A_wins + A_losses == 0:
+        if A_wins + A_round_losses.shape[0] == 0:
             df.at[num, 'A_round_per'] = 0
         else:
-            df.at[num, 'A_round_per'] = (A_wins / (A_wins + A_losses)) * 100.0
+            df.at[num, 'A_round_per'] = (A_wins / (A_wins + A_round_losses.shape[0])) * 100.0
 
-        B_round_wins = temp_df.loc[(temp_df['A_id'] == loser) & (temp_df['round'] == temp_df['round'][num])]
-        B_round_losses = temp_df.loc[(temp_df['B_id'] == loser) & (temp_df['round'] == temp_df['round'][num])]
-
-        if B_round_wins.shape[0] == 0:
-            B_wins = 0
-        else:
-            B_wins = B_round_wins.shape[0]
+        B_round_wins = temp_df.loc[(temp_df['A_id'] == loser) & (temp_df['round'] == round_curr)]
+        B_round_losses = temp_df.loc[(temp_df['B_id'] == loser) & (temp_df['round'] == round_curr)]
 
         if B_round_losses.shape[0] == 0:
             B_losses = 0
         else:
             B_losses = B_round_losses.shape[0] - 1
 
-        df.at[num, 'B_round_wins'] = B_wins
+        df.at[num, 'B_round_wins'] = B_round_wins.shape[0]
         df.at[num, 'B_round_losses'] = B_losses
-        df.at[num, 'B_round_matches'] = B_wins + B_losses
+        df.at[num, 'B_round_matches'] = B_round_wins.shape[0] + B_losses
 
-        if B_wins + B_losses == 0:
+        if B_round_wins.shape[0] + B_losses == 0:
             df.at[num, 'B_round_per'] = 0
         else:
-            df.at[num, 'B_round_per'] = (B_wins / (B_wins + B_losses)) * 100.0
+            df.at[num, 'B_round_per'] = (B_round_wins.shape[0] / (B_round_wins.shape[0] + B_losses)) * 100.0
 
     return df
 
-# 14. Ratings
+# 14. Ratings -> ΟΚ
 def elo_rating_system(df):
     """
     Calculate Elo Ratings
@@ -875,7 +853,7 @@ def elo_rating_system(df):
 
     return df
 
-# 15. Aces Vs Double Faults
+# 15. Aces Vs Double Faults -> ΟΚ
 def ace_vs_df(df):
     """
     Calculate the Percentage of Ace over Double Faults over the Past 12 Months
@@ -947,7 +925,7 @@ def ace_vs_df(df):
             df.at[num, 'B_ratio_ace/df_year'] = (mean_value_aces_of_loser / mean_value_dfs_of_loser) * 100.0
     return df
 
-# 16. Performance
+# 16. Performance -> ΟΚ
 def performance_helper_features(df):
     """
     Calculate the Percentage of successful First Serves
@@ -1000,7 +978,7 @@ def performance_helper_features(df):
 
     return df
 
-# 17. Performance Metrics Mean Values per Career and Year
+# 17. Performance Metrics Mean Values per Career and Year -> ΟΚ
 def performance_mean_values_career_year(df):
     """
        Calculate serve statistics ( for lifetime period )
@@ -1269,7 +1247,7 @@ def performance_mean_values_career_year(df):
             df.at[num, 'B_bpSavedratio_year'] = mean_value_bpSavedratio_los
     return df
 
-# 18. Mental Strength Statistics
+# 18. Mental Strength Statistics -> ΟΚ
 def mental_strength_features(df):
     """
     Calculate mental strength statistics ( for lifetime period )
@@ -1302,7 +1280,7 @@ def mental_strength_features(df):
 
     return df
 
-# 19. Winning Streak, Losing Streak, Inactivity
+# 19. Winning Streak, Losing Streak, Inactivity -> ΟΚ
 def streaks_and_inactivity(df):
     """
     Calculate winning streak (consecutive wins)
@@ -1355,7 +1333,7 @@ def streaks_and_inactivity(df):
 
     return df
 
-# 20. Player Momentum
+# 20. Player Momentum -> ΟΚ
 def player_momentum(df):
     """
     The player momentum is the current Form of a player and it is calculated by
@@ -1439,7 +1417,7 @@ def player_momentum(df):
 
     return df
 
-# 21. Preferred Hand
+# 21. Preferred Hand -> ΟΚ
 def preferred_hand(df):
     """
     Player's Preferred Hand
@@ -1824,31 +1802,7 @@ def calculate_opponents(df, player):
                 op.append(p)
     return op
 
-"""
-# H.2
-def calc_mean(temp_df, player, opponent, flag):
-    df1 = temp_df[(temp_df['A_id'] == player) & (temp_df['B_id'] == opponent)]
-    df2 = temp_df[(temp_df['A_id'] == opponent) & (temp_df['B_id'] == player)]
-    l1 = df1['A_' + flag].tolist()
-    l2 = df2['B_' + flag].tolist()
-    l = l1 + l2
-    return statistics.mean(l)
 
-# H.3
-def common_opponent_calculator(df, common_op, plA, plB, feature):
-    A_feature_mean_value = 0
-    B_feature_mean_value = 0
-
-    num_of_opponents = len(common_op)
-    for opponent in common_op:
-        A_feature_mean_value = A_feature_mean_value + calc_mean(df, plA, opponent, feature)
-        B_feature_mean_value = B_feature_mean_value + calc_mean(df, plB, opponent, feature)
-
-    A_mean = A_feature_mean_value / num_of_opponents
-    B_mean = B_feature_mean_value / num_of_opponents
-    difference = A_mean - B_mean
-    return difference
-"""
 ######## UTIL FUNCTIONS ########
 
 # Get differences if players have common opponents
@@ -1914,7 +1868,7 @@ def run_differences(df):
     print('Part 1')
     isFile_1 = os.path.isfile(path=path_1)
     if not isFile_1:
-        df.drop(columns=['Unnamed: 0', 'Unnamed: 0.1'], inplace=True)
+        #df.drop(columns=['Unnamed: 0'], inplace=True)
         df = get_differences_features(df)
         df.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/Feature_Engineering/Differences.csv")
     else:

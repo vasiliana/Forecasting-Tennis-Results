@@ -123,11 +123,11 @@ def get_final_dataset(df):
                     inplace=True)
     half_df2['Label'] = 0
     half_df1.sort_values(['match_index'], inplace=True)
-    half_df1.to_csv('/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/Feature_Engineering/New/half1.csv')
+    half_df1.to_csv('/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/Feature_Engineering/half1.csv')
     half_df2.sort_values(['match_index'], inplace=True)
-    half_df2.to_csv('/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/Feature_Engineering/New/half2.csv')
+    half_df2.to_csv('/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/Feature_Engineering/half2.csv')
 
     concat_dataset = pd.concat([half_df1, half_df2])
     concat_dataset.sort_values(['match_index'], inplace=True)
-    concat_dataset.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/Feature_Engineering/New/Completed.csv")
+    concat_dataset.to_csv("/Users/vasilianaroidouli/Desktop/Forecasting_Tennis_Results/Output/Feature_Engineering/Completed.csv")
     return concat_dataset

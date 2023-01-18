@@ -1226,7 +1226,9 @@ def merger_data(df_atp, df_bet):
                       left_on=['year', 'long_tourney_name', 'winner_lname', 'loser_lname'],
                       right_on=['Year', 'Tournament', 'Winner Last Name', 'Loser Last Name']
                       )
-    merger.sort_values(['tourney_date', 'tourney_id'], inplace=True)
+
+    #merger.sort_values(['tourney_date', 'tourney_id'], inplace=True)
+    merger.sort_values(['tourney_date', 'match_num'], inplace=True)
     merger = drop_some_extra_rows(merger)
     merger = change_winner_loser_to_A_B(merger)
     return merger
